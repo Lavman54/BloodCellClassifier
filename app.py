@@ -4,27 +4,43 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 from torchvision import models
 from PIL import Image
+import gdown
+import os
 
 # **Streamlit sayfa yapılandırmasını EN BAŞTA yap**
 st.set_page_config(page_title="Blood Cell Classification AI", layout="wide")
 
-# Modeli yükleme fonksiyonu
+# **Modeli Google Drive’dan indir ve yükle**
+def download_model():
+    drive_url = "https://drive.google.com/uc?id=1o_Dz60Ucza7HsZsG71kC274RsozwnVym"
+    model_path = "blood_cell_classifier.pth"
+
+    # Eğer model zaten varsa, tekrar indirme
+    if not os.path.exists(model_path):
+        st.write("📥 Model indiriliyor, lütfen bekleyin...")
+        gdown.download(drive_url, model_path, quiet=False)
+        st.write("✅ Model başarıyla indirildi!")
+
+    return model_path
+
+# **Modeli yükleme fonksiyonu**
 @st.cache_resource
 def load_model():
+    model_file = download_model()
     num_classes = 8
     model = models.resnet50(weights=None)
     model.fc = nn.Linear(model.fc.in_features, num_classes)
-    model.load_state_dict(torch.load("blood_cell_classifier.pth", map_location=torch.device('cpu'), weights_only=True))
+    model.load_state_dict(torch.load(model_file, map_location=torch.device('cpu'), weights_only=True))
     model.eval()
     return model
 
-# Modeli yükle
+# **Modeli yükle**
 model = load_model()
 
-# Sınıf etiketleri
+# **Sınıf etiketleri**
 class_names = ['Basophil', 'Eosinophil', 'Erythroblast', 'IG', 'Lymphocyte', 'Monocyte', 'Neutrophil', 'Platelet']
 
-# Görüntü işleme fonksiyonu
+# **Görüntü işleme fonksiyonu**
 def process_image(image):
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -64,14 +80,14 @@ st.markdown("<div class='title'>🚀 Yapay Zeka ile Kan Hücresi Sınıflandırm
 
 st.write("Lütfen bir periferik yayma mikroskop görüntüsü yükleyin.")
 
-# Kullanıcıdan görüntü yüklemesini iste
+# **Görüntü yükleme alanı**
 uploaded_file = st.file_uploader("Görüntü Seç (JPG, PNG)", type=["jpg", "png"])
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
-    st.image(image, caption="Yüklenen Görüntü", use_column_width=True)
+    st.image(image, caption="Yüklenen Görüntü", use_container_width=True)
 
-    # Görüntüyü işleyip modele ver
+    # **Görüntüyü işle ve modele ver**
     img_tensor = process_image(image)
 
     with torch.no_grad():
@@ -79,7 +95,7 @@ if uploaded_file is not None:
         _, predicted = torch.max(output, 1)
         prediction = class_names[predicted.item()]
 
-    # Tahmin sonucunu göster
+    # **Tahmin sonucunu göster**
     st.subheader(f"📌 Model Tahmini: **{prediction}**")
 
 # **Footer**
